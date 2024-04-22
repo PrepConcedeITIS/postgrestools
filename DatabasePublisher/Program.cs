@@ -38,14 +38,23 @@ async Task CreateTempDatabaseAsync()
 {
     var tempDatabaseName = $"{targetConnectionStringBuilder.Database}_{DateTime.UtcNow:yyyyMMddHHmmss}_temp";
 
+    if (config.Debug)
+        Console.WriteLine($"Creating temp database {tempDatabaseName}.");
+    
     await using var tempCrateDatabaseConnection = new NpgsqlConnection(tempConnectionStringBuilder.ConnectionString);
     await tempCrateDatabaseConnection.ExecuteAsync($"CREATE DATABASE {tempDatabaseName};");
+    
+    if (config.Debug)
+        Console.WriteLine($"Connecting to temp database.");
 
     tempConnectionStringBuilder.Database = tempDatabaseName;
 }
 
 async Task UpdateTempDatabaseAsync()
 {
+    if (config.Debug)
+        Console.WriteLine("Applying sql files.");
+    
     await using var tempConnection = new NpgsqlConnection(tempConnectionStringBuilder.ConnectionString);
 
     var directories = Directory.GetDirectories(config.SchemaDirectory)
@@ -65,6 +74,9 @@ async Task UpdateTempDatabaseAsync()
 
         await foreach (var (fileName, content) in files)
         {
+            if (config.Debug)
+                Console.WriteLine($"Applying {fileName} to temp database.");
+            
             await tempConnection.ExecuteAsync(content);
         }
     }
