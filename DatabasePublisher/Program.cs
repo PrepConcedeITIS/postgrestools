@@ -2,6 +2,12 @@ using Dapper;
 using DatabasePublisher;
 using Npgsql;
 
+if (GetOptionsValue("help", true) is not null)
+{
+    WriteHelp();
+    return;
+}
+
 var config = GetConfig();
 
 var tempConnectionStringBuilder = new NpgsqlConnectionStringBuilder(config.TempConnectionString);
@@ -16,6 +22,25 @@ await UpdateTempDatabaseAsync();
 
 return;
 
+
+void WriteHelp()
+{
+    Console.WriteLine("options:");
+    Console.WriteLine("--target_connection CONNECTION_STRING");
+    Console.WriteLine("\tconnection string for target database. This parameter is required!");
+    Console.WriteLine("--temp_connection CONNECTION_STRING");
+    Console.WriteLine("\tconnection string for temp database. Default: local database inside container.");
+    Console.WriteLine("--schema_directory DIRECTORY");
+    Console.WriteLine("\tdirectory with sql files. Default: current directory.");
+    Console.WriteLine("--generate_publish_file FLAG");
+    Console.WriteLine("\tflag to enable generation of publish script file.");
+    Console.WriteLine("--output_directory DIRECTORY");
+    Console.WriteLine("\tdirectory for publish script files, used with generate_publish_file. Default: bin/Debug/publish");
+    Console.WriteLine("--do_not_drop FLAG");
+    Console.WriteLine("\tdo not drop temp database.");
+    Console.WriteLine("--debug FLAG");
+    Console.WriteLine("\tenable debug output.");
+}
 
 Configuration GetConfig() => new()
 {
