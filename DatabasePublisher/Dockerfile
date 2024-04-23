@@ -42,3 +42,17 @@ WORKDIR /working
 
 ENTRYPOINT ["bash", "entrypoint.sh"]
 CMD ["--help"]
+
+FROM migra AS final
+ENV DOTNET_VERSION=8.0.4
+WORKDIR /app
+COPY --from=publish /app/publish .
+COPY --from=installer ["/dotnet", "/usr/share/dotnet"] .
+USER root
+RUN echo "dotnet /app/DatabasePublisher.dll \"\$@\"" >> /usr/bin/entrypoint.sh
+RUN ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
+WORKDIR /working
+
+
+ENTRYPOINT ["bash", "entrypoint.sh"]
+CMD ["--help"]
