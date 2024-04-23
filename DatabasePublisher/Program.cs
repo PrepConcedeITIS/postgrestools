@@ -29,6 +29,9 @@ var updateScript = await GetUpdateScriptAsync(tempConnectionStringBuilder, targe
 
 if (!config.DoNotDrop)
     await DropTempDatabase();
+
+if (config.GeneratePublishFile)
+    await GeneratePublishFileAsync();
 return;
 
 
@@ -127,6 +130,27 @@ async ValueTask DropTempDatabase()
     catch (Exception ex)
     {
     }
+}
+
+async ValueTask GeneratePublishFileAsync()
+{
+    var nextId = Directory.Exists(config.OutputDirectory) ?
+        Directory
+            .GetFiles(config.OutputDirectory, "*.sql", SearchOption.TopDirectoryOnly)
+            .Select(file => Path.GetFileName(file))
+            .Where(file => file.StartsWith(targetDatabaseName) && file.EndsWith(".publish.sql"))
+            .Select(file =>
+                int.TryParse(file[(targetDatabaseName.Length + 1)..][..^".publish.sql".Length].Trim('_'), out var i) ?
+                    i :
+                    1)
+            .OrderByDescending(i => i)
+            .FirstOrDefault() + 1 :
+        1;
+
+    var targetFilename = Path.Combine(config.OutputDirectory, $"{targetDatabaseName}_{nextId}.publish.sql");
+
+    Directory.CreateDirectory(config.OutputDirectory);
+    await File.WriteAllTextAsync(targetFilename, updateScript);
 }
 
 static async ValueTask<string> GetUpdateScriptAsync(NpgsqlConnectionStringBuilder tempConnectionString,
