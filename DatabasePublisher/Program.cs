@@ -6,16 +6,17 @@ using Npgsql;
 if (GetOptionsValue("help", true) is not null)
 {
     WriteHelp();
+
     return;
 }
 
-var config = GetConfig();
+var configuration = GetConfiguration();
+var tempConnectionStringBuilder = new NpgsqlConnectionStringBuilder(configuration.TempConnectionString);
+var targetConnectionStringBuilder = new NpgsqlConnectionStringBuilder(configuration.TargetConnectionString);
 
-var tempConnectionStringBuilder = new NpgsqlConnectionStringBuilder(config.TempConnectionString);
-
-var targetConnectionStringBuilder = new NpgsqlConnectionStringBuilder(config.TargetConnectionString);
 if (targetConnectionStringBuilder.Database is null)
     throw new Exception("Target database is not specified.");
+
 var targetDatabaseName = targetConnectionStringBuilder.Database ??
                          throw new Exception("Target database is not specified.");
 var tempDatabaseName = $"{targetDatabaseName}_{DateTime.UtcNow:yyyyMMddHHmmss}_temp".ToLower();
@@ -27,10 +28,10 @@ await UpdateTempDatabaseAsync();
 
 var updateScript = await GetUpdateScriptAsync(tempConnectionStringBuilder, targetConnectionStringBuilder);
 
-if (!config.DoNotDrop)
-    await DropTempDatabase();
+if (!configuration.DoNotDrop)
+    await DropTempDatabaseAsync();
 
-if (config.GeneratePublishFile)
+if (configuration.GeneratePublishFile)
     await GeneratePublishFileAsync();
 
 Console.WriteLine("Update script:");
@@ -58,7 +59,7 @@ void WriteHelp()
     Console.WriteLine("\tenable debug output.");
 }
 
-Configuration GetConfig() => new()
+Configuration GetConfiguration() => new()
 {
     TempConnectionString = GetOptionsValue("temp_connection") ??
                            "Server=127.0.0.1;Port=9797;Database=;User Id=docker;Password=docker;", //TODO: default TempConnectionString
@@ -77,29 +78,29 @@ string? GetOptionsValue(string name, bool isFlag = false) =>
 
 async Task CreateTempDatabaseAsync(string databaseName)
 {
-    if (config.Debug)
+    if (configuration.Debug)
         Console.WriteLine($"Creating temp database {databaseName}.");
 
     await using var tempCrateDatabaseConnection = new NpgsqlConnection(tempConnectionStringBuilder.ConnectionString);
     await tempCrateDatabaseConnection.ExecuteAsync($"CREATE DATABASE {databaseName};");
 
-    if (config.Debug)
-        Console.WriteLine($"Connecting to temp database.");
+    if (configuration.Debug)
+        Console.WriteLine("Connecting to temp database.");
 
     tempConnectionStringBuilder.Database = databaseName;
 }
 
 async Task UpdateTempDatabaseAsync()
 {
-    if (config.Debug)
+    if (configuration.Debug)
         Console.WriteLine("Applying sql files.");
-    
+
     await using var tempConnection = new NpgsqlConnection(tempConnectionStringBuilder.ConnectionString);
 
-    var directories = Directory.GetDirectories(config.SchemaDirectory)
+    var directories = Directory.GetDirectories(configuration.SchemaDirectory)
         .Where(directory => Path.GetFileName(directory) is not "bin" and not "obj")
         .OrderByDescending(directory => Path.GetFileName(directory).ToLower() is "schemas");
-    
+
     foreach (var directory in directories)
     {
         var files = Directory.GetFiles(directory, "*.sql", SearchOption.AllDirectories)
@@ -113,19 +114,19 @@ async Task UpdateTempDatabaseAsync()
 
         await foreach (var (fileName, content) in files)
         {
-            if (config.Debug)
+            if (configuration.Debug)
                 Console.WriteLine($"Applying {fileName} to temp database.");
-            
+
             await tempConnection.ExecuteAsync(content);
         }
     }
 }
 
-async ValueTask DropTempDatabase()
+async ValueTask DropTempDatabaseAsync()
 {
     try
     {
-        if (config.Debug)
+        if (configuration.Debug)
             Console.WriteLine("Dropping temp database");
 
         tempConnectionStringBuilder.Database = "template1";
@@ -136,29 +137,29 @@ async ValueTask DropTempDatabase()
     }
     catch (Exception ex)
     {
-        if (config.Debug)
+        if (configuration.Debug)
             Console.WriteLine($"Can not drop temp database {ex}");
     }
 }
 
 async ValueTask GeneratePublishFileAsync()
 {
-    var nextId = Directory.Exists(config.OutputDirectory) ?
+    var nextId = Directory.Exists(configuration.OutputDirectory) ?
         Directory
-            .GetFiles(config.OutputDirectory, "*.sql", SearchOption.TopDirectoryOnly)
-            .Select(file => Path.GetFileName(file))
-            .Where(file => file.StartsWith(targetDatabaseName) && file.EndsWith(".publish.sql"))
+            .GetFiles(configuration.OutputDirectory, "*.sql", SearchOption.TopDirectoryOnly)
+            .Select(Path.GetFileName)
+            .Where(file => file!.StartsWith(targetDatabaseName) && file.EndsWith(".publish.sql"))
             .Select(file =>
-                int.TryParse(file[(targetDatabaseName.Length + 1)..][..^".publish.sql".Length].Trim('_'), out var i) ?
+                int.TryParse(file![(targetDatabaseName.Length + 1)..][..^".publish.sql".Length].Trim('_'), out var i) ?
                     i :
                     1)
             .OrderByDescending(i => i)
             .FirstOrDefault() + 1 :
         1;
 
-    var targetFilename = Path.Combine(config.OutputDirectory, $"{targetDatabaseName}_{nextId}.publish.sql");
+    var targetFilename = Path.Combine(configuration.OutputDirectory, $"{targetDatabaseName}_{nextId}.publish.sql");
 
-    Directory.CreateDirectory(config.OutputDirectory);
+    Directory.CreateDirectory(configuration.OutputDirectory);
     await File.WriteAllTextAsync(targetFilename, updateScript);
     Console.WriteLine($"Publish file saved to {targetFilename}");
 }
@@ -167,7 +168,7 @@ static async ValueTask<string> GetUpdateScriptAsync(NpgsqlConnectionStringBuilde
     NpgsqlConnectionStringBuilder targetConnectionString)
 {
     using var migraProcess = Process
-        .Start(new ProcessStartInfo()
+        .Start(new ProcessStartInfo
         {
             FileName = "migra",
             Arguments =
