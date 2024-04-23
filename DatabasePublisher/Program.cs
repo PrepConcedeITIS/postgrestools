@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Dapper;
 using DatabasePublisher;
 using Npgsql;
@@ -15,11 +16,16 @@ var tempConnectionStringBuilder = new NpgsqlConnectionStringBuilder(config.TempC
 var targetConnectionStringBuilder = new NpgsqlConnectionStringBuilder(config.TargetConnectionString);
 if (targetConnectionStringBuilder.Database is null)
     throw new Exception("Target database is not specified.");
+var targetDatabaseName = targetConnectionStringBuilder.Database ??
+                         throw new Exception("Target database is not specified.");
+var tempDatabaseName = $"{targetDatabaseName}_{DateTime.UtcNow:yyyyMMddHHmmss}_temp".ToLower();
 
-await CreateTempDatabaseAsync();
+await CreateTempDatabaseAsync(tempDatabaseName);
 tempConnectionStringBuilder.Pooling = false;
 await UpdateTempDatabaseAsync();
 
+
+var updateScript = await GetUpdateScriptAsync(tempConnectionStringBuilder, targetConnectionStringBuilder);
 return;
 
 
@@ -59,20 +65,18 @@ string? GetOptionsValue(string name, bool isFlag = false) =>
     args.SkipWhile(arg => !arg.StartsWith($"--{name}")).Skip(isFlag ? 0 : 1).FirstOrDefault() ??
     Environment.GetEnvironmentVariable(name);
 
-async Task CreateTempDatabaseAsync()
+async Task CreateTempDatabaseAsync(string databaseName)
 {
-    var tempDatabaseName = $"{targetConnectionStringBuilder.Database}_{DateTime.UtcNow:yyyyMMddHHmmss}_temp";
-
     if (config.Debug)
-        Console.WriteLine($"Creating temp database {tempDatabaseName}.");
-    
+        Console.WriteLine($"Creating temp database {databaseName}.");
+
     await using var tempCrateDatabaseConnection = new NpgsqlConnection(tempConnectionStringBuilder.ConnectionString);
-    await tempCrateDatabaseConnection.ExecuteAsync($"CREATE DATABASE {tempDatabaseName};");
-    
+    await tempCrateDatabaseConnection.ExecuteAsync($"CREATE DATABASE {databaseName};");
+
     if (config.Debug)
         Console.WriteLine($"Connecting to temp database.");
 
-    tempConnectionStringBuilder.Database = tempDatabaseName;
+    tempConnectionStringBuilder.Database = databaseName;
 }
 
 async Task UpdateTempDatabaseAsync()
@@ -106,3 +110,24 @@ async Task UpdateTempDatabaseAsync()
         }
     }
 }
+
+static async ValueTask<string> GetUpdateScriptAsync(NpgsqlConnectionStringBuilder tempConnectionString,
+    NpgsqlConnectionStringBuilder targetConnectionString)
+{
+    using var migraProcess = Process
+        .Start(new ProcessStartInfo()
+        {
+            FileName = "migra",
+            Arguments =
+                $"--unsafe {ToConnectionUrl(targetConnectionString)} {ToConnectionUrl(tempConnectionString)}",
+            RedirectStandardOutput = true
+        });
+    await migraProcess!.WaitForExitAsync();
+
+    var result = await migraProcess.StandardOutput.ReadToEndAsync();
+
+    return result;
+}
+
+static string ToConnectionUrl(NpgsqlConnectionStringBuilder input) =>
+    $"postgresql://{input.Username}:{input.Password}@{input.Host}:{input.Port}/{input.Database}";
