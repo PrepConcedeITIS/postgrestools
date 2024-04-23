@@ -22,3 +22,23 @@ RUN echo "local   all    all                    scram-sha-256" >> /etc/postgresq
 RUN echo "host    all    all    127.0.0.1/32    scram-sha-256" >> /etc/postgresql/14/main/pg_hba.conf
 RUN echo "listen_addresses='127.0.0.1'" >> /etc/postgresql/14/main/postgresql.conf
 RUN echo "port=9797" >> /etc/postgresql/14/main/postgresql.conf
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS publish
+WORKDIR /src
+COPY ["DatabasePublisher/DatabasePublisher.csproj", "DatabasePublisher/"]
+COPY . .
+WORKDIR "/src/DatabasePublisher"
+RUN dotnet publish "DatabasePublisher.csproj" -c Release -o /app/publish
+
+FROM postgres AS final-with-postgres
+ENV DOTNET_VERSION=8.0.4
+WORKDIR /app
+COPY --from=publish /app/publish .
+COPY --from=installer ["/dotnet", "/usr/share/dotnet"] .
+USER root
+RUN echo "/etc/init.d/postgresql start && dotnet /app/DatabasePublisher.dll \"\$@\"" >> /usr/bin/entrypoint.sh
+RUN ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
+WORKDIR /working
+
+ENTRYPOINT ["bash", "entrypoint.sh"]
+CMD ["--help"]
