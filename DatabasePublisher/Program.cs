@@ -32,6 +32,10 @@ if (!config.DoNotDrop)
 
 if (config.GeneratePublishFile)
     await GeneratePublishFileAsync();
+
+Console.WriteLine("Update script:");
+Console.WriteLine(updateScript);
+
 return;
 
 
@@ -121,6 +125,9 @@ async ValueTask DropTempDatabase()
 {
     try
     {
+        if (config.Debug)
+            Console.WriteLine("Dropping temp database");
+
         tempConnectionStringBuilder.Database = "template1";
 
         await using var connection = new NpgsqlConnection(tempConnectionStringBuilder.ConnectionString);
@@ -129,6 +136,8 @@ async ValueTask DropTempDatabase()
     }
     catch (Exception ex)
     {
+        if (config.Debug)
+            Console.WriteLine($"Can not drop temp database {ex}");
     }
 }
 
@@ -151,6 +160,7 @@ async ValueTask GeneratePublishFileAsync()
 
     Directory.CreateDirectory(config.OutputDirectory);
     await File.WriteAllTextAsync(targetFilename, updateScript);
+    Console.WriteLine($"Publish file saved to {targetFilename}");
 }
 
 static async ValueTask<string> GetUpdateScriptAsync(NpgsqlConnectionStringBuilder tempConnectionString,
