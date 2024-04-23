@@ -26,6 +26,9 @@ await UpdateTempDatabaseAsync();
 
 
 var updateScript = await GetUpdateScriptAsync(tempConnectionStringBuilder, targetConnectionStringBuilder);
+
+if (!config.DoNotDrop)
+    await DropTempDatabase();
 return;
 
 
@@ -108,6 +111,21 @@ async Task UpdateTempDatabaseAsync()
             
             await tempConnection.ExecuteAsync(content);
         }
+    }
+}
+
+async ValueTask DropTempDatabase()
+{
+    try
+    {
+        tempConnectionStringBuilder.Database = "template1";
+
+        await using var connection = new NpgsqlConnection(tempConnectionStringBuilder.ConnectionString);
+
+        await connection.ExecuteAsync($"DROP DATABASE {tempDatabaseName};");
+    }
+    catch (Exception ex)
+    {
     }
 }
 
