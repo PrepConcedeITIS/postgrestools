@@ -1,0 +1,14 @@
+<VSTemplate Version="3.0.0" xmlns="http://schemas.microsoft.com/developer/vstemplate/2005" Type="Item">
+  <TemplateData>
+    <DefaultName>Table.sql</DefaultName>
+    <Name>Table</Name>
+    <Description>Postgresql table</Description>
+    <ProjectType>CPS Projects</ProjectType>
+    <SortOrder>10</SortOrder>
+    <Icon>__TemplateIcon.ico</Icon>
+  </TemplateData>
+  <TemplateContent>
+    <References />
+    <ProjectItem SubType="" TargetFileName="$fileinputname$.sql" ReplaceParameters="true">table.sql</ProjectItem>
+  </TemplateContent>
+</VSTemplate>
