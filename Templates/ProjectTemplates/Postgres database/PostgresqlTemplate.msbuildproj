@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.Build.NoTargets/3.5.6">
+
+  <PropertyGroup>
+    <Name>$safeprojectname$</Name>
+    <OutputType>Database</OutputType>
+    <TargetFramework>net</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="**" Exclude="bin\**;obj\**;*.msbuildproj" />
+  </ItemGroup>
+
+</Project>

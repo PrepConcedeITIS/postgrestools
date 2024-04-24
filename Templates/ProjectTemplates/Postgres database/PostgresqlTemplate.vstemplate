@@ -1,0 +1,34 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<VSTemplate Version="3.0.0" Type="Project" xmlns="http://schemas.microsoft.com/developer/vstemplate/2005">
+    <TemplateData>
+        <Name>Postgresql database</Name>
+        <Description>Postgresql database project</Description>
+        <SortOrder>150</SortOrder>
+        <CreateNewFolder>true</CreateNewFolder>
+        <CreateInPlace>true</CreateInPlace>
+        <ProjectType>CSharp</ProjectType>
+        <ProjectSubType>
+        </ProjectSubType>
+        <DefaultName>Database</DefaultName>
+        <ProvideDefaultName>true</ProvideDefaultName>
+        <PromptForSaveOnCreation>true</PromptForSaveOnCreation>
+        <LocationField>Enabled</LocationField>
+        <EnableLocationBrowseButton>true</EnableLocationBrowseButton>
+        <NumberOfParentCategoriesToRollUp>1</NumberOfParentCategoriesToRollUp>
+        <Icon>__TemplateIcon.ico</Icon>
+        <LanguageTag>Query language</LanguageTag>
+        <PlatformTag>Windows</PlatformTag>
+        <PlatformTag>Linux</PlatformTag>
+        <ProjectTypeTag>Other</ProjectTypeTag>
+    </TemplateData>
+    <TemplateContent>
+        <Project File="PostgresqlTemplate.msbuildproj" ReplaceParameters="true">
+            <Folder Name="Schemas" TargetFolderName="Schemas">
+                <ProjectItem TargetFileName="public.sql">public.sql</ProjectItem>
+            </Folder>
+            <Folder Name="Tables" TargetFolderName="Tables">
+                <ProjectItem TargetFileName="table.sql">table.sql</ProjectItem>
+            </Folder>
+        </Project>
+    </TemplateContent>
+</VSTemplate>
